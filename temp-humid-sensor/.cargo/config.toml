@@ -6,4 +6,4 @@ runner = "probe-rs run --chip nrf54l15"
 target = "thumbv8m.main-none-eabihf"
 
 [env]
-DEFMT_LOG = "trace"
+DEFMT_LOG = "info"
