@@ -15,11 +15,10 @@
         
         nativeBuildInputs = with pkgs; [
           rustup
-          git
-          gcc-arm-embedded
           probe-rs-tools
           pkg-config
           just
+          minicom
         ];
 
 
