@@ -37,8 +37,6 @@ async fn main(_spawner: Spawner) {
         i2c_config,
         RAM_BUFFER.take(),
     );
-    let mut rh_data = [0u8; 3]; //MSB, LSB, Checksum
-    let mut temp_data = [0u8; 2]; //MSB, LSB
 
     info!("UART Setup");
     let mut uart_config = uarte::Config::default();
@@ -53,29 +51,44 @@ async fn main(_spawner: Spawner) {
 
     loop {
         // Get humidity
-        i2c.write_read(SI7021_ADDR, &[CMD_RH], &mut rh_data)
-            .await
-            .ok();
-        let raw_rh = u16::from_be_bytes([rh_data[0], rh_data[1]]) as f32;
-        let humidity = ((125.0 * raw_rh) / 65536.0) - 6.0;
-        let mut humidity_buf = ryu::Buffer::new();
-        let humidity_str: &str = humidity_buf.format(humidity);
+        let humidity: f32 = get_humidity(&mut i2c).await;
+        let humidity_str: String<16> = convert_data_to_string(humidity);
 
         // Get temperature
-        i2c.write_read(SI7021_ADDR, &[CMD_TEMP], &mut temp_data)
-            .await
-            .ok();
-        let raw_temp = u16::from_be_bytes([temp_data[0], temp_data[1]]) as f32;
-        let temp = ((175.72 * raw_temp) / 65536.0) - 46.85;
-        let mut temp_buf = ryu::Buffer::new();
-        let temp_str: &str = temp_buf.format(temp);
+        let temp: f32 = get_temp(&mut i2c).await;
+        let temp_str: String<16> = convert_data_to_string(temp);
 
-        let msg: String<48> = format_output_str(temp_str, humidity_str);
+        let msg: String<48> = format_output_str(temp_str.as_str(), humidity_str.as_str());
         buf[..msg.len()].copy_from_slice(msg.as_bytes());
         unwrap!(uart.write(&buf[..msg.len()]).await);
 
         Timer::after_millis(1000).await;
     }
+}
+
+async fn get_data(i2c: &mut Twim<'static>, cmd_hex: u8, data_buf: &mut [u8]) -> f32 {
+    i2c.write_read(SI7021_ADDR, &[cmd_hex], data_buf).await.ok();
+    let raw_data = u16::from_be_bytes([data_buf[0], data_buf[1]]) as f32;
+    return raw_data;
+}
+
+async fn get_humidity(i2c: &mut Twim<'static>) -> f32 {
+    let mut rh_data = [0u8; 3]; //MSB, LSB, Checksum
+    let raw_rh: f32 = get_data(i2c, CMD_RH, &mut rh_data).await;
+    return ((125.0 * raw_rh) / 65536.0) - 6.0;
+}
+
+async fn get_temp(i2c: &mut Twim<'static>) -> f32 {
+    let mut temp_data = [0u8; 2]; //MSB, LSB
+    let raw_temp: f32 = get_data(i2c, CMD_TEMP, &mut temp_data).await;
+    return ((175.72 * raw_temp) / 65536.0) - 46.85;
+}
+
+fn convert_data_to_string(data: f32) -> String<16> {
+    let mut buf = ryu::Buffer::new();
+    let mut s: String<16> = String::new();
+    s.push_str(buf.format(data)).ok();
+    return s;
 }
 
 fn format_output_str(temp_str: &str, humidity_str: &str) -> String<48> {
