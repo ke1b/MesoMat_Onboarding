@@ -20,5 +20,6 @@ build: _check_nix_shell
 run: _check_nix_shell
 	cargo run
 
+# View UART outputs in minicom
 minicom:
     minicom -D /dev/ttyACM1 -b 115200c
