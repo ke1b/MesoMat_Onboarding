@@ -19,3 +19,6 @@ build: _check_nix_shell
 [working-directory("./temp-humid-sensor/")]
 run: _check_nix_shell
 	cargo run
+
+minicom:
+    minicom -D /dev/ttyACM1 -b 115200c
